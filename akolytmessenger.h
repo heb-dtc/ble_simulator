@@ -14,6 +14,8 @@ enum class MessageType : unsigned char
   GET_STATUS = 0xD,
   SET_USER = 0x13,
   CLIENT_SETTINGS = 0x39,
+  WRITE_VEHICLE_SIGNATURE = 0x03,
+  VALIDATE_VEHICLE_SIGNATURE = 0x0F,
   REFUSED = 0xFF,
   UNKNOWN = 0xF1
 };

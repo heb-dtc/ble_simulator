@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
     QLoggingCategory::setFilterRules(QStringLiteral("qt.bluetooth* = true"));
     QCoreApplication app(argc, argv);
 
-    Peripheral* peripheral = new Peripheral("Akolyt");
+    Peripheral* peripheral = new Peripheral("AkolytSimul4tor");
     peripheral->advertise();
 
     return app.exec();

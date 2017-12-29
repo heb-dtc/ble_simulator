@@ -93,6 +93,20 @@ void AkolytMessenger::read(const QByteArray &data, std::function<void(const QByt
             value.append(0x01);
             callback(value);
             break;
+        case MessageType::WRITE_VEHICLE_SIGNATURE:
+            qDebug() << "write vehicle signature received";
+            value.append(static_cast<char>(MessageType::WRITE_VEHICLE_SIGNATURE));
+            //sending success
+            value.append((char)0x00);
+            callback(value);
+            break;
+        case MessageType::VALIDATE_VEHICLE_SIGNATURE:
+            qDebug() << "validate vehicle signature received";
+            value.append(static_cast<char>(MessageType::VALIDATE_VEHICLE_SIGNATURE));
+            //sending success
+            value.append((char)0x00);
+            callback(value);
+            break;
         case MessageType::UNKNOWN:
         default:
             qDebug() << "can't handle message, unknown type";
@@ -121,6 +135,12 @@ MessageType AkolytMessenger::parseType(const unsigned char type)
         return MessageType::SET_USER;
     } else if (type == 0x39) {
         return MessageType::CLIENT_SETTINGS;
+    } else if(type == 0x03) {
+        return MessageType::WRITE_VEHICLE_SIGNATURE;
+    } else if(type == 0x0F) {
+        return MessageType::VALIDATE_VEHICLE_SIGNATURE;
+    } else if(type == 0x0F) {
+        return MessageType::VALIDATE_VEHICLE_SIGNATURE;
     } else {
         return MessageType::UNKNOWN;
     }
