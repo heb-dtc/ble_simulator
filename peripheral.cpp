@@ -1,24 +1,31 @@
-#include "akolyt.h"
-
-static constexpr const char* ADVERTISING_NAME = "Akolyt";
+#include "peripheral.h"
+#include "akolytmessenger.h"
 
 static constexpr const char* MESSAGING_SERVICE_UUID = "00010000-f619-54a4-95e5-072a926cc46f";
 static constexpr const char* WRITE_CHARACTERISTIC_UUID = "00020000-f619-54a4-95e5-072a926cc46f";
 static constexpr const char* NOTIFY_CHARACTERISTIC_UUID = "00020001-f619-54a4-95e5-072a926cc46f";
 
-Akolyt::Akolyt(QObject *parent) : QObject(parent)
+Peripheral::Peripheral(const QString &name, QObject *parent) : QObject(parent)
 {
+    this->name = name;
+    this->messenger = new AkolytMessenger(this);
     this->lowEnergyController = QLowEnergyController::createPeripheral(parent);
     this->genericAccessService = this->lowEnergyController->addService(buildGenericAccessServiceData());
     this->genericAttributeService = this->lowEnergyController->addService(buildGenericAttributeServiceData());
     this->messagingService = this->lowEnergyController->addService(buildMessagingServiceData());
 
-    QObject::connect(messagingService, &QLowEnergyService::characteristicChanged, this, &Akolyt::onMessageReceived);
-    QObject::connect(messagingService, &QLowEnergyService::characteristicRead, this, &Akolyt::onReadRequest);
-    QObject::connect(messagingService, &QLowEnergyService::characteristicWritten, this, &Akolyt::onCharacteristicWritten);
+    QObject::connect(lowEnergyController, &QLowEnergyController::connected, this, &Peripheral::onConnected);
+    QObject::connect(lowEnergyController, &QLowEnergyController::disconnected, this, &Peripheral::onDisconnected);
+    QObject::connect(lowEnergyController, &QLowEnergyController::stateChanged, this, &Peripheral::onStateChanged);
+    
+    QObject::connect(messagingService, &QLowEnergyService::characteristicChanged, this, &Peripheral::onMessageReceived);
+    QObject::connect(messagingService, &QLowEnergyService::characteristicRead, this, &Peripheral::onMessageRead);
+    QObject::connect(messagingService, &QLowEnergyService::characteristicWritten, this, &Peripheral::onMessageWritten);
+    QObject::connect(messagingService, &QLowEnergyService::descriptorRead, this, &Peripheral::onDescriptorRead);
+    QObject::connect(messagingService, &QLowEnergyService::descriptorWritten, this, &Peripheral::onDescriptorWritten);
 }
 
-Akolyt::~Akolyt()
+Peripheral::~Peripheral()
 {
     delete this->lowEnergyController;
     delete this->genericAccessService;
@@ -26,58 +33,86 @@ Akolyt::~Akolyt()
     delete this->messagingService;
 }
 
-void Akolyt::advertise()
+void Peripheral::advertise()
 {
-//    QLowEnergyCharacteristic notifyCharacteristic = this->messagingService->characteristic(QUuid(NOTIFY_CHARACTERISTIC_UUID));
-//    QLowEnergyDescriptor d = notifyCharacteristic.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
-//    this->messagingService->writeDescriptor(d, QByteArray::fromHex("0200"));
-
     QLowEnergyAdvertisingData advertisingData = buildAdvertisingData();
     this->lowEnergyController->startAdvertising(QLowEnergyAdvertisingParameters(), advertisingData, advertisingData);
 
-    qDebug() << "Advertising for " << ADVERTISING_NAME << " has started...";
+    qDebug() << "Advertising for " << this->name << " has started...";
 }
 
-void Akolyt::onMessageReceived(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+void Peripheral::onConnected()
 {
-    qDebug() << "message received " << data;
+    qDebug() << "controller connected";
 
     QLowEnergyCharacteristic notifyCharacteristic = this->messagingService->characteristic(QUuid(NOTIFY_CHARACTERISTIC_UUID));
-
-    QByteArray value;
-    value.append(char(0));
-    value.append(char(1));
-
-    qDebug() << "trying to send: " << value;
-
     QLowEnergyDescriptor descriptor = notifyCharacteristic.descriptor(QBluetoothUuid::ClientCharacteristicConfiguration);
     this->messagingService->writeDescriptor(descriptor, QByteArray::fromHex("0200"));
-
-    this->messagingService->writeCharacteristic(notifyCharacteristic, value);
-    //this->messagingService->writeDescriptor(descriptor, value);
 }
 
-void Akolyt::onReadRequest(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+void Peripheral::onDisconnected()
 {
-    qDebug() << "read request received" << data;
+    qDebug() << "controller disconnected";
+    advertise();
 }
 
-void Akolyt::onCharacteristicWritten(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+void Peripheral::onStateChanged(QLowEnergyController::ControllerState state)
 {
-    qDebug() << "onCharacteristicWritten" << data;
+    qDebug() << "controller state changed " << state;
 }
 
-QLowEnergyAdvertisingData Akolyt::buildAdvertisingData()
+void Peripheral::onError(QLowEnergyController::Error error)
+{
+    qDebug() << "controller error " << error;
+}
+
+void Peripheral::onMessageReceived(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+{
+    const auto sendCallback = [&] (const QByteArray & message) {
+        sendMessage(message);
+    };
+    messenger->onMessageReceived(data, sendCallback); 
+}
+
+void Peripheral::onMessageWritten(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+{
+    qDebug() << "onMessageWritten";
+}
+
+void Peripheral::onMessageRead(const QLowEnergyCharacteristic &characteritic, const QByteArray &data)
+{
+    qDebug() << "on message read";
+}
+
+void Peripheral::onDescriptorRead(const QLowEnergyDescriptor descriptor, const QByteArray &data)
+{
+    qDebug() << "on descriptor read";
+}
+
+void Peripheral::onDescriptorWritten(const QLowEnergyDescriptor descriptor, const QByteArray &data)
+{
+    qDebug() << "onDescriptorWritten";
+}
+
+void Peripheral::sendMessage(const QByteArray &data)
+{
+    qDebug() << "trying to send: " << data;
+
+    QLowEnergyCharacteristic notifyCharacteristic = this->messagingService->characteristic(QUuid(NOTIFY_CHARACTERISTIC_UUID));
+    this->messagingService->writeCharacteristic(notifyCharacteristic, data, QLowEnergyService::WriteWithResponse);
+}
+
+QLowEnergyAdvertisingData Peripheral::buildAdvertisingData()
 {
     QLowEnergyAdvertisingData advertisingData;
     advertisingData.setDiscoverability(QLowEnergyAdvertisingData::DiscoverabilityGeneral);
     advertisingData.setIncludePowerLevel(true);
-    advertisingData.setLocalName(ADVERTISING_NAME);
+    advertisingData.setLocalName(this->name);
     advertisingData.setServices(getGattServices());
     return advertisingData;
 }
 
-QList<QBluetoothUuid> Akolyt::getGattServices()
+QList<QBluetoothUuid> Peripheral::getGattServices()
 {
     QList<QBluetoothUuid> gattServices;
     gattServices.append(QBluetoothUuid::GenericAccess);
@@ -86,7 +121,7 @@ QList<QBluetoothUuid> Akolyt::getGattServices()
     return gattServices;
 }
 
-QLowEnergyServiceData Akolyt::buildGenericAttributeServiceData()
+QLowEnergyServiceData Peripheral::buildGenericAttributeServiceData()
 {
     QLowEnergyServiceData genericAttributeService;
 
@@ -105,7 +140,7 @@ QLowEnergyServiceData Akolyt::buildGenericAttributeServiceData()
     return genericAttributeService;
 }
 
-QLowEnergyServiceData Akolyt::buildGenericAccessServiceData()
+QLowEnergyServiceData Peripheral::buildGenericAccessServiceData()
 {
     QLowEnergyServiceData genericAccessService;
 
@@ -129,7 +164,7 @@ QLowEnergyServiceData Akolyt::buildGenericAccessServiceData()
     return genericAccessService;
 }
 
-QLowEnergyServiceData Akolyt::buildMessagingServiceData()
+QLowEnergyServiceData Peripheral::buildMessagingServiceData()
 {
     QLowEnergyServiceData serviceData;
 
@@ -143,7 +178,7 @@ QLowEnergyServiceData Akolyt::buildMessagingServiceData()
     return serviceData;
 }
 
-QLowEnergyCharacteristicData Akolyt::buildNotifyCharacteristic()
+QLowEnergyCharacteristicData Peripheral::buildNotifyCharacteristic()
 {
     QLowEnergyCharacteristicData notifyCharacteristicData;
 
@@ -158,7 +193,7 @@ QLowEnergyCharacteristicData Akolyt::buildNotifyCharacteristic()
     return notifyCharacteristicData;
 }
 
-QLowEnergyCharacteristicData Akolyt::buildWriteCharacteristic()
+QLowEnergyCharacteristicData Peripheral::buildWriteCharacteristic()
 {
     QLowEnergyCharacteristicData writeCharacteristicData;
 

@@ -5,10 +5,14 @@ QT += bluetooth
 CONFIG += c++11
 
 SOURCES += main.cpp \
-    akolyt.cpp
+    peripheral.cpp \
+    messenger.cpp \
+    akolytmessenger.cpp
 
 target.path = build/akolyt
 INSTALLS += target
 
 HEADERS += \
-    akolyt.h
+    peripheral.h \
+    messenger.h \
+    akolytmessenger.h

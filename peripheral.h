@@ -1,5 +1,5 @@
-#ifndef AKOLYT_H
-#define AKOLYT_H
+#ifndef PERIPHERAL_H
+#define PERIPHERAL_H
 
 #include <QObject>
 #include <QtBluetooth/qlowenergyadvertisingdata.h>
@@ -10,8 +10,9 @@
 #include <QtBluetooth/qlowenergycontroller.h>
 #include <QtBluetooth/qlowenergyservice.h>
 #include <QtBluetooth/qlowenergyservicedata.h>
+#include "messenger.h"
 
-class Akolyt : public QObject
+class Peripheral : public QObject
 {
     Q_OBJECT
 
@@ -26,22 +27,33 @@ class Akolyt : public QObject
     QLowEnergyServiceData buildMessagingServiceData();
 
 public:
-    explicit Akolyt(QObject *parent = nullptr);
-    ~Akolyt();
+    explicit Peripheral(const QString &name, QObject *parent = nullptr);
+    ~Peripheral();
     void advertise();
 
 signals:
 
 public slots:
+    void onConnected();
+    void onDisconnected();
+    void onStateChanged(QLowEnergyController::ControllerState state);
+    void onError(QLowEnergyController::Error error);
     void onMessageReceived(const QLowEnergyCharacteristic& characteritic, const QByteArray& data);
-    void onReadRequest(const QLowEnergyCharacteristic& characteritic, const QByteArray& data);
-    void onCharacteristicWritten(const QLowEnergyCharacteristic& characteritic, const QByteArray& data);
+    void onMessageRead(const QLowEnergyCharacteristic& characteritic, const QByteArray& data);
+    void onMessageWritten(const QLowEnergyCharacteristic& characteritic, const QByteArray& data);
+    void onDescriptorRead(const QLowEnergyDescriptor descriptor, const QByteArray &data);
+    void onDescriptorWritten(const QLowEnergyDescriptor descriptor, const QByteArray &data);
 
 private:
+    QString name;
+    Messenger *messenger;
+
     QLowEnergyController *lowEnergyController;
     QLowEnergyService *messagingService;
     QLowEnergyService *genericAttributeService;
     QLowEnergyService *genericAccessService;
+
+    void sendMessage(const QByteArray &data);
 };
 
-#endif // AKOLYT_H
+#endif // PERIPHERAL_H
