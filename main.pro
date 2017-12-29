@@ -7,7 +7,8 @@ CONFIG += c++11
 SOURCES += main.cpp \
     peripheral.cpp \
     messenger.cpp \
-    akolytmessenger.cpp
+    akolytmessenger.cpp \
+    messagesender.cpp
 
 target.path = build/akolyt
 INSTALLS += target
@@ -15,4 +16,5 @@ INSTALLS += target
 HEADERS += \
     peripheral.h \
     messenger.h \
-    akolytmessenger.h
+    akolytmessenger.h \
+    messagesender.h

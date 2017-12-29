@@ -5,10 +5,12 @@
 
 AkolytMessenger::AkolytMessenger(QObject *parent) : QObject(parent), Messenger()
 {
+    this->messageSender = new MessageSender();
 }
 
 AkolytMessenger::~AkolytMessenger() 
 {
+    delete messageSender;
 }
 
 void AkolytMessenger::read(const QByteArray &data, std::function<void(const QByteArray&)> callback)
@@ -126,69 +128,82 @@ MessageType AkolytMessenger::parseType(const unsigned char type)
 
 void AkolytMessenger::sendCarSignature(std::function<void(const QByteArray&)> callback) 
 {   
-    QTimer::singleShot(0, this, SLOT(sendNextMessage(0, callback)));
+    QList<QByteArray> messages = buildVehicleSignatureMessages();
+    messageSender->prepare(messages, callback);
+    
+    sendNextMessage();
 }
 
-//Six messages are sent one after the other
-void AkolytMessenger::sendNextMessage(int index, std::function<const void(QByteArray&)> callback)
+void AkolytMessenger::sendNextMessage()
 {
-    QByteArray value;
-
-    if (index == 0) {
-        //Send a GET_RETURN_CODE with a new vehicle value
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //Not sure why this value but IT WORKS!
-        value.append(0x05);
-        //set value to NEW_VEHICLE(2) (other values are ERROR(0), SAME_VEHICLE(1), DIFFERENT_VEHICLE(3))
-        value.append(0x02);
-        callback(value);
-        QTimer::singleShot(200, this, SLOT(sendNextMessage(1, callback)));
-    } else if (index == 1) {
-        //Send A GET_VIN response with a valid VIN
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //GET_VIN
-        value.append((char)0x00);
-        //VIN
-        value.append(QByteArray::fromStdString("1A1JC5444R7252367"));
-        callback(value);
-        QTimer::singleShot(200, this, SLOT(sendNextMessage(2, callback)));
-    } else if (index == 2) {
-        //Send A GET_PROTOCOL response with a protocol value
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //GET_PROTOCOL
-        value.append(0x01);
-        //PROTOCOL
-        value.append(0x01);
-        callback(value);
-        QTimer::singleShot(200, this, SLOT(sendNextMessage(3, callback)));
-    } else if (index == 3) {
-        //Send A GET_VHID_1 response with the first part of the vehicle ID value
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //GET_VHID_1
-        value.append(0x02);
-        //Vehicle ID part 1
-        value.append(QByteArray::fromStdString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000"));
-        callback(value);
-        QTimer::singleShot(200, this, SLOT(sendNextMessage(4, callback)));
-    } else if (index == 4) {
-        //Send A GET_VHID_2 response with the second part of the vehicle ID value
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //GET_VHID_2
-        value.append(0x03);
-        //Vehicle ID part 2
-        value.append(QByteArray::fromStdString("000000000000000000000000000000000000"));
-        callback(value);
-        QTimer::singleShot(200, this, SLOT(sendNextMessage(5, callback)));
-    } else if (index == 5) {
-        //Send A GET_VHID_3 response with the thirs part of the vehicle ID value
-        value.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
-        //GET_VHID_3
-        value.append(0x04);
-        //Vehicle ID part 3
-        value.append(0xFF);
-        value.append(0xFF);
-        value.append(0xFF);
-        value.append(0xFF);
-        callback(value);
+    int lastIndex = messageSender->getIndexOfLastMessage();
+    if (lastIndex < 5) {
+        messageSender->sendNext();
+        QTimer::singleShot(200, this, SLOT(sendNextMessage()));
     }
+}
+
+QList<QByteArray> AkolytMessenger::buildVehicleSignatureMessages()
+{
+    qDebug() << "Building vehicle message list";
+    QList<QByteArray> messages;
+    
+    //Send a GET_RETURN_CODE with a new vehicle value
+    QByteArray partOne;
+    partOne.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //Not sure why this value but IT WORKS!
+    partOne.append(0x05);
+    //set value to NEW_VEHICLE(2) (other values are ERROR(0), SAME_VEHICLE(1), DIFFERENT_VEHICLE(3))
+    partOne.append(0x02);
+    messages.append(partOne);
+    
+    //Send A GET_VIN response with a valid VIN
+    QByteArray partTwo;
+    partTwo.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //GET_VIN
+    partTwo.append((char)0x00);
+    //VIN
+    partTwo.append(QByteArray::fromStdString("1A1JC5444R7252367"));
+    messages.append(partTwo);
+
+    //Send A GET_PROTOCOL response with a protocol value
+    QByteArray partThree;
+    partThree.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //GET_PROTOCOL
+    partThree.append(0x01);
+    //PROTOCOL
+    partThree.append(0x01);
+    messages.append(partThree);
+        
+    //Send A GET_VHID_1 response with the first part of the vehicle ID value
+    QByteArray partFour;
+    partFour.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //GET_VHID_1
+    partFour.append(0x02);
+    //Vehicle ID part 1
+    partFour.append(QByteArray::fromStdString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000"));
+    messages.append(partFour);
+
+    //Send A GET_VHID_2 response with the second part of the vehicle ID value
+    QByteArray partFive;
+    partFive.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //GET_VHID_2
+    partFive.append(0x03);
+    //Vehicle ID part 2
+    partFive.append(QByteArray::fromStdString("000000000000000000000000000000000000"));
+    messages.append(partFive);
+
+    //Send A GET_VHID_3 response with the thirs part of the vehicle ID value
+    QByteArray partSix;
+    partSix.append(static_cast<char>(MessageType::GET_VEHICULE_SIGNATURE));
+    //GET_VHID_3
+    partSix.append(0x04);
+    //Vehicle ID part 3
+    partSix.append(0xFF);
+    partSix.append(0xFF);
+    partSix.append(0xFF);
+    partSix.append(0xFF);
+    messages.append(partSix);
+
+    return messages;
 }

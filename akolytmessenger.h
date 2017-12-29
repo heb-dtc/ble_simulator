@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include "messenger.h"
+#include "messagesender.h"
 
 enum class MessageType : unsigned char
 {
@@ -28,12 +29,15 @@ class AkolytMessenger : public QObject, public Messenger
   signals:
 
   public slots:
-      void sendNextMessage(int index, std::function<const void(QByteArray&)>);
+      void sendNextMessage();
 
   private:
     virtual void read(const QByteArray &, std::function<void(const QByteArray&)>);
     MessageType parseType(const unsigned char);
     void sendCarSignature(std::function<void(const QByteArray&)>);
+    QList<QByteArray> buildVehicleSignatureMessages();
+
+    MessageSender *messageSender;
     
 };
 
