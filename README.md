@@ -11,7 +11,7 @@ Please check Qt website and follow the instruction to install it on your environ
 ### Run 
 
  - Running this software requires hardware capable of performing BLE.   
- Make sure to check if your system is compliant before trying this software.
+ Make sure to check that your system is compliant before trying this software.
 
 #### On Linux
 
