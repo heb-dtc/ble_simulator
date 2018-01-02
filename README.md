@@ -19,14 +19,13 @@ Please check Qt website and follow the instruction to install it on your environ
 
 - These are the commands to run:
 > `modprobe btusb  
-systemctl start bluetooth.service  
-sudo btmgmt -i hci0 power off  
-sudo btmgmt -i hci0 le on  
-sudo btmgmt -i hci0 bredr off  
-sudo btmgmt -i hci0 connectable on  
-sudo btmgmt -i hci0 advertising on  
-sudo btmgmt -i hci0 power on  
-`
+ systemctl start bluetooth.service  
+ sudo btmgmt -i hci0 power off  
+ sudo btmgmt -i hci0 le on  
+ sudo btmgmt -i hci0 bredr off  
+ sudo btmgmt -i hci0 connectable on  
+ sudo btmgmt -i hci0 advertising on  
+ sudo btmgmt -i hci0 power on`
 
 #### On MacOS
 
